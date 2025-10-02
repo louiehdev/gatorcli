@@ -55,6 +55,6 @@ func getConfigFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	configFilePath := fmt.Sprintf("%v/Documents/workspace/github/gatorcli/%v", homeDir, configFileName)
+	configFilePath := fmt.Sprintf("%v/%v", homeDir, configFileName)
 	return configFilePath, nil
 }

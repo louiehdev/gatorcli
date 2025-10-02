@@ -24,6 +24,7 @@ func main() {
 	cmd := command{name: args[1], arguments: args[2:]}
 	if err := commands.run(&appState, cmd); err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
