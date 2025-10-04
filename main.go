@@ -7,7 +7,9 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
+
 	config "github.com/louiehdev/gatorcli/internal/config"
+
 	database "github.com/louiehdev/gatorcli/internal/database"
 )
 
@@ -26,6 +28,10 @@ func main() {
 
 	commands := commands{commandMap: make(map[string]commandHandler)}
 	commands.register("login", commandLogin)
+	commands.register("register", commandRegister)
+	commands.register("users", commandUsers)
+	commands.register("reset", commandReset)
+	commands.register("agg", commandAgg)
 	args := os.Args
 	if len(args) < 2 {
 		fmt.Println("Error: not enough arguments provided")
@@ -36,43 +42,4 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-type state struct {
-	cfg *config.Config
-	db  *database.Queries
-}
-
-type commandHandler func(s *state, cmd command) error
-
-type command struct {
-	name      string
-	arguments []string
-}
-
-type commands struct {
-	commandMap map[string]commandHandler
-}
-
-func (c *commands) run(s *state, cmd command) error {
-	if err := c.commandMap[cmd.name](s, cmd); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *commands) register(name string, f commandHandler) error {
-	c.commandMap[name] = f
-	return nil
-}
-
-func commandLogin(s *state, cmd command) error {
-	if len(cmd.arguments) == 0 {
-		return fmt.Errorf("username required")
-	}
-	if err := s.cfg.SetUser(cmd.arguments[0]); err != nil {
-		return err
-	}
-	fmt.Println("User has been set")
-	return nil
 }
