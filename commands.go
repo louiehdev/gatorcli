@@ -136,3 +136,26 @@ func commandAgg(_s *state, cmd command) error {
 	fmt.Println(rssFeed)
 	return nil
 }
+
+func commandAddFeed(s *state, cmd command) error {
+	if len(cmd.arguments) < 2 {
+		return fmt.Errorf("not enough arguments provided")
+	}
+	ctx := context.Background()
+	currentUser, err := s.db.GetUser(ctx, s.cfg.Username)
+	if err != nil {
+		return err
+	}
+	feedName := cmd.arguments[0]
+	feedURL := cmd.arguments[1]
+	id := uuid.New().ID()
+	newFeed := database.CreateFeedParams{ID: int32(id), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: feedName, Url: feedURL, UserID: currentUser.ID}
+
+	addedFeed, err := s.db.CreateFeed(ctx, newFeed)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(addedFeed)
+	return nil
+}
