@@ -32,8 +32,11 @@ func main() {
 	commands.register("users", commandUsers)
 	commands.register("reset", commandReset)
 	commands.register("agg", commandAgg)
-	commands.register("addfeed", commandAddFeed)
+	commands.register("addfeed", middlewareLoggedIn(commandAddFeed))
 	commands.register("feeds", commandFeeds)
+	commands.register("follow", middlewareLoggedIn(commandFollow))
+	commands.register("following", middlewareLoggedIn(commandFollowing))
+	commands.register("unfollow", middlewareLoggedIn(commandUnfollow))
 	args := os.Args
 	if len(args) < 2 {
 		fmt.Println("Error: not enough arguments provided")

@@ -43,6 +43,18 @@ func (c *commands) register(name string, f commandHandler) error {
 	return nil
 }
 
+func middlewareLoggedIn(authedCommand func(s *state, cmd command, user database.User) error) commandHandler {
+	return func(s *state, cmd command) error {
+		ctx := context.Background()
+		currentUser, err := s.db.GetUser(ctx, s.cfg.Username)
+		if err != nil {
+			return err
+		}
+		cmdErr := authedCommand(s, cmd, currentUser)
+		return cmdErr
+	}
+}
+
 func commandLogin(s *state, cmd command) error {
 	if len(cmd.arguments) == 0 {
 		return fmt.Errorf("username required")
@@ -141,29 +153,34 @@ func commandAgg(_s *state, cmd command) error {
 	return nil
 }
 
-func commandAddFeed(s *state, cmd command) error {
+func commandAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.arguments) < 2 {
 		return fmt.Errorf("not enough arguments provided")
 	}
 	ctx := context.Background()
-	currentUser, err := s.db.GetUser(ctx, s.cfg.Username)
-	if err != nil {
-		return err
-	}
 	feedName := cmd.arguments[0]
 	feedURL := cmd.arguments[1]
-	id := uuid.New().ID()
 	newFeed := database.CreateFeedParams{
-		ID:        int32(id),
+		ID:        int32(uuid.New().ID()),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Name:      feedName,
 		Url:       feedURL,
-		UserID:    currentUser.ID}
+		UserID:    user.ID}
 
 	addedFeed, err := s.db.CreateFeed(ctx, newFeed)
 	if err != nil {
 		return err
+	}
+	newFeedFollow := database.CreateFeedFollowParams{
+		ID:        int32(uuid.New().ID()),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    addedFeed.ID}
+
+	if _, followErr := s.db.CreateFeedFollow(ctx, newFeedFollow); followErr != nil {
+		return followErr
 	}
 
 	fmt.Println(addedFeed)
@@ -183,5 +200,62 @@ func commandFeeds(s *state, cmd command) error {
 		fmt.Printf("Feed Name: %s | URL: %s | User Name: %s\n", feed.Name, feed.Url, feed.UserName)
 	}
 
+	return nil
+}
+
+func commandFollow(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("incorrect arguments provided")
+	}
+	ctx := context.Background()
+	feed, err := s.db.GetFeedFromURL(ctx, cmd.arguments[0])
+	if err != nil {
+		return err
+	}
+
+	feedFollowParams := database.CreateFeedFollowParams{
+		ID:        int32(uuid.New().ID()),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	}
+	feedFollow, err := s.db.CreateFeedFollow(ctx, feedFollowParams)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s followed %s", feedFollow.UserName, feedFollow.FeedName)
+	return nil
+}
+
+func commandFollowing(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) != 0 {
+		return fmt.Errorf("too many arguments provided")
+	}
+	ctx := context.Background()
+	feedFollows, err := s.db.GetFeedFollowsForUser(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("User %s is currently following:\n", user.Name)
+	for _, feedFollow := range feedFollows {
+		fmt.Printf(" - %s\n", feedFollow.FeedName)
+	}
+
+	return nil
+}
+
+func commandUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("incorrect arguments provided")
+	}
+	ctx := context.Background()
+	feed, err := s.db.GetFeedFromURL(ctx, cmd.arguments[0])
+	if err != nil {
+		return err
+	}
+	if err := s.db.DeleteFeedFollow(ctx, database.DeleteFeedFollowParams{UserID: user.ID, FeedID: feed.ID}); err != nil {
+		return err
+	}
 	return nil
 }
