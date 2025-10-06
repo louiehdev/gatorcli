@@ -139,18 +139,24 @@ func commandReset(s *state, cmd command) error {
 	return nil
 }
 
-func commandAgg(_s *state, cmd command) error {
-	if len(cmd.arguments) > 0 {
-		return fmt.Errorf("too many arguments provided")
+func commandAgg(s *state, cmd command) error {
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("incorrect arguments provided")
 	}
-	ctx := context.Background()
-	feedURL := "https://www.wagslane.dev/index.xml"
-	rssFeed, err := fetchFeed(ctx, feedURL)
+	timeBetweenRequests, err := time.ParseDuration(cmd.arguments[0])
 	if err != nil {
 		return err
 	}
-	fmt.Println(rssFeed)
-	return nil
+
+	ticker := time.NewTicker(timeBetweenRequests)
+	fmt.Printf("Collecting feeds every %s\n", timeBetweenRequests)
+
+	for ; ; <-ticker.C {
+		err := scrapeFeeds(s)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 func commandAddFeed(s *state, cmd command, user database.User) error {
