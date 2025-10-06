@@ -33,6 +33,7 @@ func main() {
 	commands.register("reset", commandReset)
 	commands.register("agg", commandAgg)
 	commands.register("addfeed", commandAddFeed)
+	commands.register("feeds", commandFeeds)
 	args := os.Args
 	if len(args) < 2 {
 		fmt.Println("Error: not enough arguments provided")

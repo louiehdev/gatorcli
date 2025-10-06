@@ -69,7 +69,11 @@ func commandRegister(s *state, cmd command) error {
 	ctx := context.Background()
 	name := cmd.arguments[0]
 	id := uuid.New().ID()
-	user := database.CreateUserParams{ID: int32(id), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: name}
+	user := database.CreateUserParams{
+		ID:        int32(id),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      name}
 
 	registeredUser, err := s.db.CreateUser(ctx, user)
 	if err != nil {
@@ -149,7 +153,13 @@ func commandAddFeed(s *state, cmd command) error {
 	feedName := cmd.arguments[0]
 	feedURL := cmd.arguments[1]
 	id := uuid.New().ID()
-	newFeed := database.CreateFeedParams{ID: int32(id), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: feedName, Url: feedURL, UserID: currentUser.ID}
+	newFeed := database.CreateFeedParams{
+		ID:        int32(id),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      feedName,
+		Url:       feedURL,
+		UserID:    currentUser.ID}
 
 	addedFeed, err := s.db.CreateFeed(ctx, newFeed)
 	if err != nil {
@@ -157,5 +167,21 @@ func commandAddFeed(s *state, cmd command) error {
 	}
 
 	fmt.Println(addedFeed)
+	return nil
+}
+
+func commandFeeds(s *state, cmd command) error {
+	if len(cmd.arguments) > 0 {
+		return fmt.Errorf("too many arguments provided")
+	}
+	ctx := context.Background()
+	feeds, err := s.db.GetFeeds(ctx)
+	if err != nil {
+		return err
+	}
+	for _, feed := range feeds {
+		fmt.Printf("Feed Name: %s | URL: %s | User Name: %s\n", feed.Name, feed.Url, feed.UserName)
+	}
+
 	return nil
 }
