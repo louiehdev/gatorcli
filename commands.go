@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -262,6 +264,76 @@ func commandUnfollow(s *state, cmd command, user database.User) error {
 	}
 	if err := s.db.DeleteFeedFollow(ctx, database.DeleteFeedFollowParams{UserID: user.ID, FeedID: feed.ID}); err != nil {
 		return err
+	}
+	return nil
+}
+
+func commandBrowse(s *state, cmd command, user database.User) error {
+	var limit int32
+	if len(cmd.arguments) == 1 {
+		limitarg, err := strconv.Atoi(cmd.arguments[0])
+		if err != nil {
+			return err
+		}
+		limit = int32(limitarg)
+	} else if len(cmd.arguments) < 1 {
+		limit = 2
+	} else {
+		return fmt.Errorf("too many arguments provided")
+	}
+
+	ctx := context.Background()
+	posts, err := s.db.GetPostsForUser(ctx, database.GetPostsForUserParams{UserID: user.ID, Limit: limit})
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Println(post)
+	}
+
+	return nil
+}
+
+func scrapeFeeds(s *state) error {
+	ctx := context.Background()
+	nextFeed, err := s.db.GetNextFeedToFetch(ctx)
+	if err != nil {
+		return err
+	}
+	if err := s.db.MarkFeedFetched(ctx, database.MarkFeedFetchedParams{
+		ID: nextFeed.ID,
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		}}); err != nil {
+		return err
+	}
+	rssFeed, err := fetchFeed(ctx, nextFeed.Url)
+	if err != nil {
+		return err
+	}
+	for _, item := range rssFeed.Channel.Items[:3] {
+		publishTime, _ := time.Parse(time.RFC1123Z, item.PubDate)
+		newPost := database.CreatePostParams{
+			ID:          int32(uuid.New().ID()),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			PublishedAt: publishTime,
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: item.Description,
+			FeedID:      nextFeed.ID,
+		}
+		if _, err := s.db.CreatePost(ctx, newPost); err != nil {
+			if pqErr, ok := err.(*pq.Error); ok {
+				if string(pqErr.Code) == "23505" {
+					fmt.Println("Post already exists, ignoring error for now")
+					return nil
+				}
+			}
+			return err
+		}
 	}
 	return nil
 }
